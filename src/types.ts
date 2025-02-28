@@ -1,5 +1,10 @@
 export interface SinkConfig {
-  [key: string]: string | number | boolean | Array<string | number | boolean> | object;
+  [key: string]:
+    | string
+    | number
+    | boolean
+    | Array<string | number | boolean>
+    | object;
 }
 
 export interface Sink {
@@ -48,10 +53,22 @@ export interface Topology {
 }
 
 // Define a union type for all node types in the selection
-export type NodeSelection = 
-  | { type: 'main'; nodeId: string; }
-  | { type: 'physical'; nodeId: string; parentId: string; name: string; index?: number; }
-  | { type: 'sink'; nodeId: string; parentId: string; name: string; index?: number; }
+export type NodeSelection =
+  | { type: "main"; nodeId: string }
+  | {
+      type: "physical";
+      nodeId: string;
+      parentId: string;
+      name: string;
+      index?: number;
+    }
+  | {
+      type: "sink";
+      nodeId: string;
+      parentId: string;
+      name: string;
+      index?: number;
+    }
   | null;
 
 export interface SimulationNode extends d3.SimulationNodeDatum {
@@ -65,10 +82,10 @@ export interface SimulationNode extends d3.SimulationNodeDatum {
     upstreams?: string[];
   };
   physical?: PhysicalSource[];
-  nodeType?: 'main' | 'physical' | 'sink';
+  nodeType?: "main" | "physical" | "sink";
   // For physical and sink nodes, we need to track their parent and index
   parentId?: string;
-  index?: number;
+  parentIndex?: number;
   // Additional properties for drag handling
   _dragParent?: string;
   _dragStartX?: number;
@@ -78,5 +95,5 @@ export interface SimulationNode extends d3.SimulationNodeDatum {
 export interface SimulationLink extends d3.SimulationLinkDatum<SimulationNode> {
   source: string | SimulationNode;
   target: string | SimulationNode;
-  direction: 'downstream' | 'upstream' | 'physical' | 'sink';
+  direction: "downstream" | "upstream" | "physical" | "sink";
 }
