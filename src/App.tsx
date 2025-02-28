@@ -23,8 +23,8 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadTopology = async () => {
       try {
-        // Fetch from file
-        const response = await fetch('/topology.yaml');
+        // Fetch from file with relative path for GitHub Pages
+        const response = await fetch('./topology.yaml');
         const yamlText = await response.text();
         const parsedYaml = load(yamlText) as Topology;
         

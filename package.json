@@ -1,7 +1,7 @@
 {
   "name": "graph-topology-editor",
   "version": "1.0.0",
-  "homepage": "https://YOURUSERNAME.github.io/graph-topology-editor",
+  "homepage": "https://ls-1801.github.io/topology-editor",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
