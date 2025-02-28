@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { load, dump } from 'js-yaml';
 import GraphVisualization from './components/GraphVisualization';
 import TopologyEditor from './components/TopologyEditor';
@@ -411,22 +411,112 @@ const App: React.FC = () => {
   // Set up event listener for node reassignment
   const graphRef = useRef<HTMLDivElement>(null);
   
+  // Use a ref to hold the latest topology to avoid stale closures in event handlers
+  const topologyRef = useRef(topology);
+  useEffect(() => {
+    topologyRef.current = topology;
+  }, [topology]);
+  
+  // Create a stable event handler that uses the latest topology from the ref
+  const stableNodeReassignHandler = useCallback((event: CustomEvent) => {
+    const { sourceNodeId, targetNodeId, nodeType } = event.detail;
+    
+    if (!sourceNodeId || !targetNodeId) return;
+    
+    console.log('Node reassign event:', sourceNodeId, 'to', targetNodeId, 'type:', nodeType);
+    
+    // Extract info from source node ID
+    const [sourceMainNodeId, nodeCategory, index] = sourceNodeId.split('-');
+    const sourceIndex = parseInt(index);
+    
+    // Get the latest topology from ref
+    const currentTopology = topologyRef.current;
+    
+    // Clone the nodes for immutability
+    const updatedNodes = [...currentTopology.nodes];
+    
+    // Find source and target nodes
+    const sourceMainNode = updatedNodes.find(n => n.connection === sourceMainNodeId);
+    const targetMainNode = updatedNodes.find(n => n.connection === targetNodeId);
+    
+    if (!sourceMainNode || !targetMainNode) {
+      console.log('Source or target node not found');
+      return;
+    }
+    
+    console.log('Source node:', sourceMainNode);
+    console.log('Target node:', targetMainNode);
+    
+    if (nodeType === 'physical' && sourceMainNode.physical && sourceIndex >= 0) {
+      console.log('Moving physical source at index', sourceIndex);
+      
+      // Get the physical source to move
+      const sourceToMove = sourceMainNode.physical[sourceIndex];
+      console.log('Source to move:', sourceToMove);
+      
+      // Remove from source node
+      sourceMainNode.physical = sourceMainNode.physical.filter((_, i) => i !== sourceIndex);
+      if (sourceMainNode.physical.length === 0) {
+        delete sourceMainNode.physical;
+      }
+      
+      // Add to target node
+      if (!targetMainNode.physical) {
+        targetMainNode.physical = [];
+      }
+      targetMainNode.physical.push(sourceToMove);
+      
+      // Update selection to new node
+      setSelectedNodeInfo(null);
+      
+    } else if (nodeType === 'sink' && sourceMainNode.sinks && sourceIndex >= 0) {
+      console.log('Moving sink at index', sourceIndex);
+      
+      // Get the sink to move
+      const sinkToMove = sourceMainNode.sinks[sourceIndex];
+      console.log('Sink to move:', sinkToMove);
+      
+      // Remove from source node
+      sourceMainNode.sinks = sourceMainNode.sinks.filter((_, i) => i !== sourceIndex);
+      if (sourceMainNode.sinks.length === 0) {
+        delete sourceMainNode.sinks;
+      }
+      
+      // Add to target node
+      if (!targetMainNode.sinks) {
+        targetMainNode.sinks = [];
+      }
+      targetMainNode.sinks.push(sinkToMove);
+      
+      // Update selection to new node
+      setSelectedNodeInfo(null);
+    }
+    
+    console.log('Updated nodes:', updatedNodes);
+    
+    // Update the topology with the modified nodes
+    setTopology({
+      ...currentTopology,
+      nodes: updatedNodes
+    });
+  }, [setSelectedNodeInfo, setTopology]);
+  
   useEffect(() => {
     console.log('Setting up nodeReassign event listener');
     const graphElement = graphRef.current;
     if (graphElement) {
       console.log('GraphRef element found:', graphElement);
-      graphElement.addEventListener('nodeReassign', handleNodeReassign as EventListener);
+      graphElement.addEventListener('nodeReassign', stableNodeReassignHandler as EventListener);
     } else {
       console.log('GraphRef element not found');
     }
     
     return () => {
       if (graphElement) {
-        graphElement.removeEventListener('nodeReassign', handleNodeReassign as EventListener);
+        graphElement.removeEventListener('nodeReassign', stableNodeReassignHandler as EventListener);
       }
     };
-  }, []);
+  }, [stableNodeReassignHandler]);
   
   // Handle logical schema operations
   const handleAddLogicalSchema = (schema: LogicalSchema) => {

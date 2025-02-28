@@ -15,9 +15,14 @@ interface LinkDisplayItem {
 const TopologyControls: React.FC<TopologyControlsProps> = ({ topology, onTopologyChange }) => {
   const [showAddNode, setShowAddNode] = useState(false);
   const [showAddLink, setShowAddLink] = useState(false);
-  const [newNodeConnection, setNewNodeConnection] = useState('');
-  const [newNodeGrpc, setNewNodeGrpc] = useState('');
+  const [newNodeIp, setNewNodeIp] = useState('127.0.0.1');
+  const [newNodePort, setNewNodePort] = useState(9090);
+  const [newNodeGrpcPort, setNewNodeGrpcPort] = useState(10090); // Default is connection port + 1000
   const [newNodeCapacity, setNewNodeCapacity] = useState(1);
+  
+  // Computed connection string and GRPC string
+  const newNodeConnection = `${newNodeIp}:${newNodePort}`;
+  const newNodeGrpc = `${newNodeIp}:${newNodeGrpcPort}`;
   const [newLinkSource, setNewLinkSource] = useState('');
   const [newLinkTarget, setNewLinkTarget] = useState('');
   const [newLinkType, setNewLinkType] = useState<'downstream' | 'upstream'>('downstream');
@@ -61,12 +66,61 @@ const TopologyControls: React.FC<TopologyControlsProps> = ({ topology, onTopolog
     return links;
   };
 
-  const handleAddNode = () => {
-    if (!newNodeConnection.trim() || !newNodeGrpc.trim()) return;
+  // Function to check for port conflicts
+  const checkPortConflicts = () => {
+    // Check if connection port and GRPC port are the same
+    if (newNodePort === newNodeGrpcPort) {
+      return { hasConflict: true, message: "Connection port and GRPC port cannot be the same" };
+    }
     
-    // Check if node already exists
-    if (topology.nodes.some(node => node.connection === newNodeConnection)) {
-      alert(`Node with connection '${newNodeConnection}' already exists.`);
+    // Check for existing nodes with conflicting ports
+    const connectionConflict = topology.nodes.find(node => node.connection === newNodeConnection);
+    if (connectionConflict) {
+      return { 
+        hasConflict: true, 
+        message: `Connection '${newNodeConnection}' already exists on node with GRPC '${connectionConflict.grpc}'` 
+      };
+    }
+    
+    const grpcConflict = topology.nodes.find(node => node.grpc === newNodeGrpc);
+    if (grpcConflict) {
+      return { 
+        hasConflict: true, 
+        message: `GRPC '${newNodeGrpc}' already exists on node with connection '${grpcConflict.connection}'` 
+      };
+    }
+    
+    // Check if the new GRPC conflicts with any existing connection
+    const grpcConflictWithConnection = topology.nodes.find(node => node.connection === newNodeGrpc);
+    if (grpcConflictWithConnection) {
+      return { 
+        hasConflict: true, 
+        message: `GRPC '${newNodeGrpc}' conflicts with an existing node's connection` 
+      };
+    }
+    
+    // Check if the new connection conflicts with any existing GRPC
+    const connectionConflictWithGrpc = topology.nodes.find(node => node.grpc === newNodeConnection);
+    if (connectionConflictWithGrpc) {
+      return { 
+        hasConflict: true, 
+        message: `Connection '${newNodeConnection}' conflicts with an existing node's GRPC` 
+      };
+    }
+    
+    return { hasConflict: false, message: "" };
+  };
+  
+  // Get current conflicts for UI display
+  const portConflicts = checkPortConflicts();
+
+  const handleAddNode = () => {
+    if (!newNodeIp.trim() || !newNodePort || !newNodeGrpcPort) return;
+    
+    // Check for conflicts
+    const conflicts = checkPortConflicts();
+    if (conflicts.hasConflict) {
+      alert(conflicts.message);
       return;
     }
 
@@ -82,8 +136,10 @@ const TopologyControls: React.FC<TopologyControlsProps> = ({ topology, onTopolog
     };
 
     onTopologyChange(updatedTopology);
-    setNewNodeConnection('');
-    setNewNodeGrpc('');
+    // Reset to defaults
+    setNewNodeIp('127.0.0.1');
+    setNewNodePort(9090);
+    setNewNodeGrpcPort(10090);
     setNewNodeCapacity(1);
     setShowAddNode(false);
   };
@@ -260,21 +316,37 @@ const TopologyControls: React.FC<TopologyControlsProps> = ({ topology, onTopolog
           <div className="modal-content">
             <h3>Add New Node</h3>
             <div className="property-field">
-              <label>Connection:</label>
+              <label>IP Address:</label>
               <input
                 type="text"
-                value={newNodeConnection}
-                onChange={(e) => setNewNodeConnection(e.target.value)}
-                placeholder="e.g. 127.0.0.1:9090"
+                value={newNodeIp}
+                onChange={(e) => setNewNodeIp(e.target.value)}
+                placeholder="127.0.0.1"
               />
             </div>
             <div className="property-field">
-              <label>GRPC:</label>
+              <label>Connection Port:</label>
               <input
-                type="text"
-                value={newNodeGrpc}
-                onChange={(e) => setNewNodeGrpc(e.target.value)}
-                placeholder="e.g. 127.0.0.1:8080"
+                type="number"
+                value={newNodePort}
+                onChange={(e) => {
+                  const newPort = Number(e.target.value);
+                  setNewNodePort(newPort);
+                  // Auto-update GRPC port to be 1000 higher
+                  setNewNodeGrpcPort(newPort + 1000);
+                }}
+                min="1"
+                max="65535"
+              />
+            </div>
+            <div className="property-field">
+              <label>GRPC Port:</label>
+              <input
+                type="number"
+                value={newNodeGrpcPort}
+                onChange={(e) => setNewNodeGrpcPort(Number(e.target.value))}
+                min="1"
+                max="65535"
               />
             </div>
             <div className="property-field">
@@ -285,6 +357,16 @@ const TopologyControls: React.FC<TopologyControlsProps> = ({ topology, onTopolog
                 onChange={(e) => setNewNodeCapacity(Number(e.target.value))}
                 min="1"
               />
+            </div>
+            <div className="property-field">
+              <label>Resulting Values:</label>
+              <div className={`result-preview ${portConflicts.hasConflict ? 'conflict' : ''}`}>
+                <div><strong>Connection:</strong> {newNodeConnection}</div>
+                <div><strong>GRPC:</strong> {newNodeGrpc}</div>
+                {portConflicts.hasConflict && (
+                  <div className="conflict-message">{portConflicts.message}</div>
+                )}
+              </div>
             </div>
             <div className="controls">
               <button onClick={handleAddNode}>Add</button>

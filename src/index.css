@@ -110,6 +110,39 @@ body {
   overflow: hidden;
 }
 
+.graph-hint {
+  position: absolute;
+  bottom: 15px;
+  left: 15px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  color: #fff;
+  font-size: 12px;
+  opacity: 0.8;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.graph-hint:hover {
+  opacity: 1;
+}
+
+.hint-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+/* Dragging styles */
+.node.dragging .node-circle {
+  stroke: #4CAF50 !important;
+  stroke-width: 3px !important;
+}
+
 .graph-container svg {
   display: block;
   width: 100% !important;
@@ -673,4 +706,23 @@ textarea {
   padding: 10px;
   border-radius: 4px;
   margin-bottom: 10px;
+}
+
+.result-preview {
+  background-color: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  font-family: monospace;
+  color: #8bc34a;
+}
+
+.result-preview div {
+  margin: 4px 0;
+}
+
+.result-preview strong {
+  color: #ccc;
+  margin-right: 6px;
 }

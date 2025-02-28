@@ -367,8 +367,10 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       // Define a better hash function to convert schema name to a deterministic color
       const hash = (str: string) => {
         // Use a more collision-resistant hash
-        let h1 = 1779033703, h2 = 3144134277,
-            h3 = 1013904242, h4 = 2773480762;
+        let h1 = 1779033703,
+          h2 = 3144134277,
+          h3 = 1013904242,
+          h4 = 2773480762;
         for (let i = 0, k; i < str.length; i++) {
           k = str.charCodeAt(i);
           h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
@@ -376,17 +378,22 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
           h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
         }
-        return [(h1^h2^h3^h4)>>>0, (h2^h1)>>>0, (h3^h1)>>>0, (h4^h1)>>>0];
+        return [
+          (h1 ^ h2 ^ h3 ^ h4) >>> 0,
+          (h2 ^ h1) >>> 0,
+          (h3 ^ h1) >>> 0,
+          (h4 ^ h1) >>> 0,
+        ];
       };
 
       const hashValues = hash(schemaName);
-      
+
       // Generate HSL color components from different hash values
       // This provides better distribution and more distinct colors
-      const h = hashValues[0] % 360;                // Hue (0-359)
-      const s = 0.65 + (hashValues[1] % 20) / 100;  // Saturation (0.65-0.85)
-      const l = 0.45 + (hashValues[2] % 15) / 100;  // Lightness (0.45-0.60)
-      
+      const h = hashValues[0] % 360; // Hue (0-359)
+      const s = 0.65 + (hashValues[1] % 20) / 100; // Saturation (0.65-0.85)
+      const l = 0.45 + (hashValues[2] % 15) / 100; // Lightness (0.45-0.60)
+
       return d3.hsl(h, s, l).toString();
     };
 
@@ -411,32 +418,33 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       "#f7b6d2", // light pink
       "#c7c7c7", // light gray
       "#dbdb8d", // light olive
-      "#9edae5"  // light teal
+      "#9edae5", // light teal
     ];
-    
+
     // Create a color map for all logical schemas for consistency
     const schemaColorMap = new Map<string, string>();
     // Track which logical schemas actually exist
     const existingSchemas = new Set<string>();
-    
+
     if (topology.logical) {
       // Sort schemas alphabetically to ensure consistent color assignment regardless of order
-      const sortedSchemas = [...topology.logical].sort((a, b) => 
+      const sortedSchemas = [...topology.logical].sort((a, b) =>
         a.name.localeCompare(b.name)
       );
-      
+
       // Assign colors to schemas
       sortedSchemas.forEach((schema, index) => {
         // Use palette colors first, then fall back to generated colors
-        const color = index < colorPalette.length 
-          ? colorPalette[index]
-          : getLogicalSchemaColor(schema.name);
-          
+        const color =
+          index < colorPalette.length
+            ? colorPalette[index]
+            : getLogicalSchemaColor(schema.name);
+
         schemaColorMap.set(schema.name, color);
         existingSchemas.add(schema.name);
       });
     }
-    
+
     // Function to check if a logical schema exists
     const logicalSchemaExists = (name: string): boolean => {
       return existingSchemas.has(name);
@@ -467,7 +475,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("width", 10)
       .attr("height", 10)
       .attr("patternTransform", "rotate(45)");
-      
+
     // Add yellow stripes to the pattern
     warningPattern
       .append("rect")
@@ -475,7 +483,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("height", 10)
       .attr("transform", "translate(0,0)")
       .attr("fill", "#FFD700"); // Gold/yellow color
-      
+
     // Add black background to the pattern
     warningPattern
       .append("rect")
@@ -484,9 +492,23 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("transform", "translate(5,0)")
       .attr("fill", "#000000"); // Black
 
+    // Add drop target indicators to main nodes
+    node
+      .filter((d) => d.nodeType === "main")
+      .append("circle")
+      .attr("class", "drop-target")
+      .attr("r", 35) // Slightly larger than the main node circle
+      .attr("fill", "rgba(255, 255, 255, 0.1)")
+      .attr("stroke", "rgba(255, 255, 255, 0.4)")
+      .attr("stroke-width", 2)
+      .attr("stroke-dasharray", "4 2")
+      .style("opacity", 0) // Hidden by default, will be shown during dragging
+      .style("pointer-events", "none"); // Don't interfere with mouse events
+
     // Add circles to nodes with different sizes and colors based on type and capacity
     node
       .append("circle")
+      .attr("class", "node-circle")
       .attr("r", (d) => {
         // Size based on node type
         if (d.nodeType === "main") return 30;
@@ -501,14 +523,18 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           const parentNode = topology.nodes.find(
             (n) => n.connection === d.parentId
           );
-          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+          if (
+            parentNode &&
+            parentNode.physical &&
+            d.parentIndex !== undefined
+          ) {
             const source = parentNode.physical[d.parentIndex];
             if (source && source.logical) {
               // Check if this logical schema actually exists
               if (!logicalSchemaExists(source.logical)) {
                 return "url(#warning-pattern)"; // Use warning pattern for non-existent schema
               }
-              
+
               // Use the color from the schema map if available
               if (schemaColorMap.has(source.logical)) {
                 return schemaColorMap.get(source.logical)!;
@@ -537,9 +563,17 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           const parentNode = topology.nodes.find(
             (n) => n.connection === d.parentId
           );
-          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+          if (
+            parentNode &&
+            parentNode.physical &&
+            d.parentIndex !== undefined
+          ) {
             const source = parentNode.physical[d.parentIndex];
-            if (source && source.logical && !logicalSchemaExists(source.logical)) {
+            if (
+              source &&
+              source.logical &&
+              !logicalSchemaExists(source.logical)
+            ) {
               return "#000"; // Black border for warning
             }
           }
@@ -552,9 +586,17 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           const parentNode = topology.nodes.find(
             (n) => n.connection === d.parentId
           );
-          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+          if (
+            parentNode &&
+            parentNode.physical &&
+            d.parentIndex !== undefined
+          ) {
             const source = parentNode.physical[d.parentIndex];
-            if (source && source.logical && !logicalSchemaExists(source.logical)) {
+            if (
+              source &&
+              source.logical &&
+              !logicalSchemaExists(source.logical)
+            ) {
               return 2; // Thicker border for warning
             }
           }
@@ -580,22 +622,27 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("text-anchor", "middle")
       .attr("font-size", (d) => (d.nodeType === "main" ? "12px" : "10px"))
       .style("pointer-events", "none");
-      
+
     // Add a tooltip to the nodes using title element
-    node.append("title")
-      .text(d => {
-        // For physical sources with non-existent logical schemas, add warning message
-        if (d.nodeType === "physical") {
-          const parentNode = topology.nodes.find(n => n.connection === d.parentId);
-          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
-            const source = parentNode.physical[d.parentIndex];
-            if (source && source.logical && !logicalSchemaExists(source.logical)) {
-              return `Warning: Logical schema "${source.logical}" does not exist`;
-            }
+    node.append("title").text((d) => {
+      // For physical sources with non-existent logical schemas, add warning message
+      if (d.nodeType === "physical") {
+        const parentNode = topology.nodes.find(
+          (n) => n.connection === d.parentId
+        );
+        if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+          const source = parentNode.physical[d.parentIndex];
+          if (
+            source &&
+            source.logical &&
+            !logicalSchemaExists(source.logical)
+          ) {
+            return `Warning: Logical schema "${source.logical}" does not exist`;
           }
         }
-        return d.connection; // Default tooltip shows the node name
-      });
+      }
+      return d.connection; // Default tooltip shows the node name
+    });
 
     // Node selection handler with proper typing
     function selectGraphNode(d: SimulationNode) {
@@ -707,9 +754,40 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       d: SimulationNode
     ) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
+
       // Fix position during drag
       d.fx = d.x;
       d.fy = d.y;
+
+      // If this is a physical source or sink, show all potential drop targets (main nodes)
+      if (d.nodeType === "physical" || d.nodeType === "sink") {
+        // Show drop targets on all main nodes except the current parent
+        const originalParentId = d.id.split("-")[0];
+
+        d3.selectAll(".drop-target")
+          .filter(function () {
+            // Get the parent node id from the node's data
+            const nodeData = d3
+              .select((this as any).parentNode)
+              .datum() as SimulationNode;
+            return nodeData.id !== originalParentId; // Don't show drop target on original parent
+          })
+          .transition()
+          .duration(200)
+          .style("opacity", 1);
+
+        // Highlight the dragged node and add dragging class
+        d3.select(event.sourceEvent.target.parentNode).classed(
+          "dragging",
+          true
+        );
+
+        d3.select(event.sourceEvent.target)
+          .transition()
+          .duration(200)
+          .attr("stroke", "#ffffff")
+          .attr("stroke-width", 3);
+      }
     }
 
     function dragged(
@@ -719,6 +797,52 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       // Update fixed position during drag
       d.fx = event.x;
       d.fy = event.y;
+
+      // If dragging a physical source or sink, highlight the closest main node
+      if (d.nodeType === "physical" || d.nodeType === "sink") {
+        const originalParentId = d.id.split("-")[0];
+        const mainNodes = nodes.filter(
+          (n) => n.nodeType === "main" && n.id !== originalParentId
+        );
+
+        // Find the closest main node
+        let closestNode: SimulationNode | null = null;
+        let closestDistance = Infinity;
+
+        for (const mainNode of mainNodes) {
+          const dx = (mainNode.x || 0) - (d.x || 0);
+          const dy = (mainNode.y || 0) - (d.y || 0);
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestNode = mainNode;
+          }
+        }
+
+        // Highlight the closest drop target if within range
+        d3.selectAll(".drop-target")
+          .filter(function () {
+            const nodeData = d3
+              .select((this as any).parentNode)
+              .datum() as SimulationNode;
+            return nodeData.id !== originalParentId;
+          })
+          .style("stroke", "rgba(255, 255, 255, 0.4)")
+          .style("stroke-width", 2);
+
+        if (closestNode && closestDistance < 50) {
+          d3.selectAll(".drop-target")
+            .filter(function () {
+              const nodeData = d3
+                .select((this as any).parentNode)
+                .datum() as SimulationNode;
+              return nodeData.id === closestNode!.id;
+            })
+            .style("stroke", "#4CAF50") // Green highlight
+            .style("stroke-width", 3);
+        }
+      }
     }
 
     function dragended(
@@ -726,6 +850,64 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       d: SimulationNode
     ) {
       if (!event.active) simulation.alphaTarget(0);
+
+      // Hide all drop targets
+      d3.selectAll(".drop-target")
+        .transition()
+        .duration(200)
+        .style("opacity", 0);
+
+      // Remove the dragging class
+      d3.select(event.sourceEvent.target.parentNode).classed("dragging", false);
+
+      // Reset the dragged node's appearance
+      d3.select(event.sourceEvent.target)
+        .transition()
+        .duration(200)
+        .attr(
+          "stroke",
+          d.nodeType === "main"
+            ? "#fff"
+            : d.nodeType === "physical"
+            ? isSourceWithMissingSchema(d)
+              ? "#000"
+              : "#fff"
+            : "#fff"
+        )
+        .attr(
+          "stroke-width",
+          d.nodeType === "main"
+            ? 2
+            : d.nodeType === "physical"
+            ? isSourceWithMissingSchema(d)
+              ? 2
+              : 1
+            : 1
+        );
+
+      // Helper function to check if a physical source has a missing schema
+      function isSourceWithMissingSchema(d: SimulationNode): boolean {
+        if (d.nodeType === "physical") {
+          const parentNode = topology.nodes.find(
+            (n) => n.connection === d.parentId
+          );
+          if (
+            parentNode &&
+            parentNode.physical &&
+            d.parentIndex !== undefined
+          ) {
+            const source = parentNode.physical[d.parentIndex];
+            if (
+              source &&
+              source.logical &&
+              !logicalSchemaExists(source.logical)
+            ) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
 
       // Check if this is a physical source or sink node that's been dragged onto a main node
       if (d.nodeType === "physical" || d.nodeType === "sink") {
@@ -744,11 +926,33 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           // If within the main node's radius, trigger reassignment
-          if (distance < 40) {
-            // Using main node radius + some margin
-            // Get node info for reassignment
+          if (distance < 50) {
+            // Increased drop target radius for better usability
+            // Get the index of the physical source or sink being moved
+            let indexValue = -1;
+            if (d.parentIndex !== undefined) {
+              indexValue = d.parentIndex;
+            } else {
+              // Fallback to parsing from ID if needed
+              const parts = d.id.split("-");
+              if (parts.length >= 3) {
+                indexValue = parseInt(parts[2]);
+              }
+            }
+
+            console.log("Dragged node info:", d);
+            console.log(
+              "Dragging from:",
+              originalParentId,
+              "to:",
+              mainNode.id,
+              "index:",
+              indexValue
+            );
+
+            // Build the custom event with full information
             const nodeInfo = {
-              sourceNodeId: d.id,
+              sourceNodeId: `${originalParentId}-${d.nodeType}-${indexValue}`,
               targetNodeId: mainNode.id,
               nodeType: d.nodeType,
             };
@@ -785,6 +989,12 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   return (
     <div ref={containerRef} className="graph-container">
       <svg ref={svgRef} width="100%" height="100%" />
+      <div className="graph-hint">
+        <div className="hint-icon">💡</div>
+        <div className="hint-text">
+          Drag physical sources and sinks to move them between nodes
+        </div>
+      </div>
     </div>
   );
 };
