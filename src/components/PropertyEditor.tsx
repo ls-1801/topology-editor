@@ -46,9 +46,15 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
       return <div className="property-editor">Source not found</div>;
     }
     
-    // Find the physical source by name
-    const sourceIndex = mainNode.physical.findIndex(source => source.logical === name);
-    if (sourceIndex === -1) {
+    // Find the physical source by name or use physicalSourceIndex if available
+    let sourceIndex = -1;
+    if (selectedNodeId.physicalSourceIndex !== undefined) {
+      sourceIndex = selectedNodeId.physicalSourceIndex;
+    } else {
+      sourceIndex = mainNode.physical.findIndex(source => source.logical === name);
+    }
+    
+    if (sourceIndex === -1 || sourceIndex >= mainNode.physical.length) {
       return <div className="property-editor">Source not found</div>;
     }
     
@@ -145,11 +151,17 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
       return <div className="property-editor">Sink not found - no sinks array</div>;
     }
     
-    // Find the sink by name
-    const sinkIndex = mainNode.sinks.findIndex(sink => sink.name === name);
+    // Find the sink by name or use sinkIndex if available
+    let sinkIndex = -1;
+    if (selectedNodeId.sinkIndex !== undefined) {
+      sinkIndex = selectedNodeId.sinkIndex;
+    } else {
+      sinkIndex = mainNode.sinks.findIndex(sink => sink.name === name);
+    }
+    
     console.log("Found sink index:", sinkIndex);
     
-    if (sinkIndex === -1) {
+    if (sinkIndex === -1 || sinkIndex >= mainNode.sinks.length) {
       return <div className="property-editor">
         Sink with name "{name}" not found
       </div>;
@@ -328,7 +340,8 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
                     type: 'physical',
                     nodeId: `${selectedNode!.connection}-physical-${index}`,
                     parentId: selectedNode!.connection,
-                    name: source.logical
+                    name: source.logical,
+                    physicalSourceIndex: index
                   });
                 }}
               >
@@ -389,7 +402,8 @@ const PropertyEditor: React.FC<PropertyEditorProps> = ({
                     type: 'sink',
                     nodeId: `${selectedNode!.connection}-sink-${index}`,
                     parentId: selectedNode!.connection,
-                    name: sink.name
+                    name: sink.name,
+                    sinkIndex: index
                   });
                 }}
               >

@@ -362,30 +362,85 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", "#FF9800");
 
-    // Function to generate colors for logical schemas
+    // Function to generate distinct colors for logical schemas
     const getLogicalSchemaColor = (schemaName: string) => {
-      // Define a hash function to convert schema name to a deterministic color
+      // Define a better hash function to convert schema name to a deterministic color
       const hash = (str: string) => {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-          hash = (hash << 5) - hash + str.charCodeAt(i);
-          hash |= 0; // Convert to 32bit integer
+        // Use a more collision-resistant hash
+        let h1 = 1779033703, h2 = 3144134277,
+            h3 = 1013904242, h4 = 2773480762;
+        for (let i = 0, k; i < str.length; i++) {
+          k = str.charCodeAt(i);
+          h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+          h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+          h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+          h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
         }
-        return hash;
+        return [(h1^h2^h3^h4)>>>0, (h2^h1)>>>0, (h3^h1)>>>0, (h4^h1)>>>0];
       };
 
-      // Use hash to generate HSL color with good saturation and lightness
-      const h = Math.abs(hash(schemaName)) % 360;
-      return d3.hsl(h, 0.7, 0.5).toString();
+      const hashValues = hash(schemaName);
+      
+      // Generate HSL color components from different hash values
+      // This provides better distribution and more distinct colors
+      const h = hashValues[0] % 360;                // Hue (0-359)
+      const s = 0.65 + (hashValues[1] % 20) / 100;  // Saturation (0.65-0.85)
+      const l = 0.45 + (hashValues[2] % 15) / 100;  // Lightness (0.45-0.60)
+      
+      return d3.hsl(h, s, l).toString();
     };
 
+    // Use a predefined color palette for better visual distinction
+    const colorPalette = [
+      "#1f77b4", // blue
+      "#ff7f0e", // orange
+      "#2ca02c", // green
+      "#d62728", // red
+      "#9467bd", // purple
+      "#8c564b", // brown
+      "#e377c2", // pink
+      "#7f7f7f", // gray
+      "#bcbd22", // olive
+      "#17becf", // teal
+      "#aec7e8", // light blue
+      "#ffbb78", // light orange
+      "#98df8a", // light green
+      "#ff9896", // light red
+      "#c5b0d5", // light purple
+      "#c49c94", // light brown
+      "#f7b6d2", // light pink
+      "#c7c7c7", // light gray
+      "#dbdb8d", // light olive
+      "#9edae5"  // light teal
+    ];
+    
     // Create a color map for all logical schemas for consistency
     const schemaColorMap = new Map<string, string>();
+    // Track which logical schemas actually exist
+    const existingSchemas = new Set<string>();
+    
     if (topology.logical) {
-      topology.logical.forEach((schema) => {
-        schemaColorMap.set(schema.name, getLogicalSchemaColor(schema.name));
+      // Sort schemas alphabetically to ensure consistent color assignment regardless of order
+      const sortedSchemas = [...topology.logical].sort((a, b) => 
+        a.name.localeCompare(b.name)
+      );
+      
+      // Assign colors to schemas
+      sortedSchemas.forEach((schema, index) => {
+        // Use palette colors first, then fall back to generated colors
+        const color = index < colorPalette.length 
+          ? colorPalette[index]
+          : getLogicalSchemaColor(schema.name);
+          
+        schemaColorMap.set(schema.name, color);
+        existingSchemas.add(schema.name);
       });
     }
+    
+    // Function to check if a logical schema exists
+    const logicalSchemaExists = (name: string): boolean => {
+      return existingSchemas.has(name);
+    };
 
     // Create the nodes
     const node = g
@@ -404,6 +459,31 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           .on("end", dragended)
       );
 
+    // Add background warning pattern for invalid schemas
+    const warningPattern = defs
+      .append("pattern")
+      .attr("id", "warning-pattern")
+      .attr("patternUnits", "userSpaceOnUse")
+      .attr("width", 10)
+      .attr("height", 10)
+      .attr("patternTransform", "rotate(45)");
+      
+    // Add yellow stripes to the pattern
+    warningPattern
+      .append("rect")
+      .attr("width", 5)
+      .attr("height", 10)
+      .attr("transform", "translate(0,0)")
+      .attr("fill", "#FFD700"); // Gold/yellow color
+      
+    // Add black background to the pattern
+    warningPattern
+      .append("rect")
+      .attr("width", 5)
+      .attr("height", 10)
+      .attr("transform", "translate(5,0)")
+      .attr("fill", "#000000"); // Black
+
     // Add circles to nodes with different sizes and colors based on type and capacity
     node
       .append("circle")
@@ -421,9 +501,14 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           const parentNode = topology.nodes.find(
             (n) => n.connection === d.parentId
           );
-          if (parentNode && parentNode.physical && d.index !== undefined) {
-            const source = parentNode.physical[d.index];
+          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+            const source = parentNode.physical[d.parentIndex];
             if (source && source.logical) {
+              // Check if this logical schema actually exists
+              if (!logicalSchemaExists(source.logical)) {
+                return "url(#warning-pattern)"; // Use warning pattern for non-existent schema
+              }
+              
               // Use the color from the schema map if available
               if (schemaColorMap.has(source.logical)) {
                 return schemaColorMap.get(source.logical)!;
@@ -446,8 +531,36 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
 
         return baseColor.darker(capacityScale(d.capacity || 1)).toString();
       })
-      .attr("stroke", "#fff")
-      .attr("stroke-width", (d) => (d.nodeType === "main" ? 2 : 1))
+      .attr("stroke", (d) => {
+        // For physical sources with non-existent logical schemas, add black stroke
+        if (d.nodeType === "physical") {
+          const parentNode = topology.nodes.find(
+            (n) => n.connection === d.parentId
+          );
+          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+            const source = parentNode.physical[d.parentIndex];
+            if (source && source.logical && !logicalSchemaExists(source.logical)) {
+              return "#000"; // Black border for warning
+            }
+          }
+        }
+        return "#fff"; // Default white stroke
+      })
+      .attr("stroke-width", (d) => {
+        // Thicker stroke for physical sources with warning
+        if (d.nodeType === "physical") {
+          const parentNode = topology.nodes.find(
+            (n) => n.connection === d.parentId
+          );
+          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+            const source = parentNode.physical[d.parentIndex];
+            if (source && source.logical && !logicalSchemaExists(source.logical)) {
+              return 2; // Thicker border for warning
+            }
+          }
+        }
+        return d.nodeType === "main" ? 2 : 1;
+      })
       // Add click handler directly to the circle for better hit detection
       .on("click", function (event, d) {
         event.stopPropagation();
@@ -467,6 +580,22 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("text-anchor", "middle")
       .attr("font-size", (d) => (d.nodeType === "main" ? "12px" : "10px"))
       .style("pointer-events", "none");
+      
+    // Add a tooltip to the nodes using title element
+    node.append("title")
+      .text(d => {
+        // For physical sources with non-existent logical schemas, add warning message
+        if (d.nodeType === "physical") {
+          const parentNode = topology.nodes.find(n => n.connection === d.parentId);
+          if (parentNode && parentNode.physical && d.parentIndex !== undefined) {
+            const source = parentNode.physical[d.parentIndex];
+            if (source && source.logical && !logicalSchemaExists(source.logical)) {
+              return `Warning: Logical schema "${source.logical}" does not exist`;
+            }
+          }
+        }
+        return d.connection; // Default tooltip shows the node name
+      });
 
     // Node selection handler with proper typing
     function selectGraphNode(d: SimulationNode) {
@@ -496,7 +625,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           nodeId: d.id,
           parentId: d.parentId,
           name: d.connection,
-          index: d.parentIndex,
+          physicalSourceIndex: d.parentIndex,
         });
       }
       // For sink nodes
@@ -513,7 +642,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           nodeId: d.id,
           parentId: d.parentId,
           name: d.connection,
-          index: d.parentIndex,
+          sinkIndex: d.parentIndex,
         });
       }
     }

@@ -60,14 +60,14 @@ export type NodeSelection =
       nodeId: string;
       parentId: string;
       name: string;
-      index?: number;
+      physicalSourceIndex?: number;
     }
   | {
       type: "sink";
       nodeId: string;
       parentId: string;
       name: string;
-      index?: number;
+      sinkIndex?: number;
     }
   | null;
 

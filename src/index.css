@@ -235,6 +235,16 @@ textarea {
   color: #f44336;
 }
 
+.yaml-info {
+  margin: 10px 0;
+  padding: 8px;
+  background-color: rgba(33, 150, 243, 0.1);
+  color: #2196f3;
+  border-radius: 4px;
+  font-size: 0.9em;
+  text-align: center;
+}
+
 .error {
   color: #f44336;
   margin: 10px 0;

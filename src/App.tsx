@@ -135,22 +135,31 @@ const App: React.FC = () => {
 
     // Handle for physical/sink nodes
     if (selectedNodeInfo && selectedNodeInfo.type === 'physical') {
-      const { parentId, index } = selectedNodeInfo;
+      const { parentId, physicalSourceIndex } = selectedNodeInfo;
+      const index = physicalSourceIndex; // For backward compatibility with existing code
       
       console.log('Updating physical source:', parentId, index, value);
       
       const updatedNodes = topology.nodes.map(node => {
         if (node.connection === parentId && node.physical && typeof index === 'number') {
           const updatedPhysical = [...node.physical];
+          let updatedSource;
           if (property === `physical[${index}]`) {
             updatedPhysical[index] = value;
           } else if (property === 'logical') {
             // Handle direct logical property update
-            const updatedSource = { ...updatedPhysical[index], logical: value };
+            updatedSource = { ...updatedPhysical[index], logical: value };
             updatedPhysical[index] = updatedSource;
+            
+            // Update selectedNodeInfo to reflect the name change
+            setSelectedNodeInfo({
+              ...selectedNodeInfo,
+              name: value,
+              physicalSourceIndex: index
+            });
           } else if (property === 'parserType') {
             // Handle parserConfig.type update
-            const updatedSource = { 
+            updatedSource = { 
               ...updatedPhysical[index], 
               parserConfig: { 
                 ...updatedPhysical[index].parserConfig, 
@@ -160,7 +169,7 @@ const App: React.FC = () => {
             updatedPhysical[index] = updatedSource;
           } else if (property === 'sourceType') {
             // Handle sourceConfig.type update
-            const updatedSource = { 
+            updatedSource = { 
               ...updatedPhysical[index], 
               sourceConfig: { 
                 ...updatedPhysical[index].sourceConfig, 
@@ -180,7 +189,8 @@ const App: React.FC = () => {
         nodes: updatedNodes
       });
     } else if (selectedNodeInfo && selectedNodeInfo.type === 'sink') {
-      const { parentId, index } = selectedNodeInfo;
+      const { parentId, sinkIndex } = selectedNodeInfo;
+      const index = sinkIndex; // For backward compatibility with existing code
       
       console.log(`Updating sink with parentId=${parentId}, index=${index}`);
       
@@ -242,7 +252,8 @@ const App: React.FC = () => {
           type: 'physical',
           nodeId: `${nodeId}-physical-${newIndex}`,
           parentId: nodeId,
-          name: newSource.logical
+          name: newSource.logical,
+          physicalSourceIndex: newIndex
         });
       }
     }
@@ -278,7 +289,8 @@ const App: React.FC = () => {
           type: 'sink',
           nodeId: `${nodeId}-sink-${newIndex}`,
           parentId: nodeId,
-          name: newSink.name
+          name: newSink.name,
+          sinkIndex: newIndex
         });
       }
     }
@@ -301,18 +313,18 @@ const App: React.FC = () => {
     
     // If we're removing the selected source, clear selection
     if (selectedNodeInfo?.type === 'physical') {
-      const { parentId, index } = selectedNodeInfo;
-      if (parentId === nodeId && typeof index === 'number' && index === sourceIndex) {
+      const { parentId, physicalSourceIndex } = selectedNodeInfo;
+      if (parentId === nodeId && typeof physicalSourceIndex === 'number' && physicalSourceIndex === sourceIndex) {
         setSelectedNodeInfo(null);
       }
     }
   };
 
   // Remove a sink from a node
-  const handleRemoveSink = (nodeId: string, sinkIndex: number) => {
+  const handleRemoveSink = (nodeId: string, indexToRemove: number) => {
     const updatedNodes = topology.nodes.map(node => {
       if (node.connection === nodeId && node.sinks) {
-        const sinks = node.sinks.filter((_, index) => index !== sinkIndex);
+        const sinks = node.sinks.filter((_, index) => index !== indexToRemove);
         return { ...node, sinks: sinks.length ? sinks : undefined };
       }
       return node;
@@ -325,8 +337,8 @@ const App: React.FC = () => {
     
     // If we're removing the selected sink, clear selection
     if (selectedNodeInfo?.type === 'sink') {
-      const { parentId, index } = selectedNodeInfo;
-      if (parentId === nodeId && typeof index === 'number' && index === sinkIndex) {
+      const { parentId, sinkIndex } = selectedNodeInfo;
+      if (parentId === nodeId && typeof sinkIndex === 'number' && sinkIndex === indexToRemove) {
         setSelectedNodeInfo(null);
       }
     }
