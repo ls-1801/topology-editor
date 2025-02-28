@@ -1,0 +1,29 @@
+{
+  "name": "graph-topology-editor",
+  "version": "1.0.0",
+  "homepage": "https://YOURUSERNAME.github.io/graph-topology-editor",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "d3": "^7.8.5",
+    "js-yaml": "^4.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/js-yaml": "^4.0.9",
+    "@types/react": "^18.2.38",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "gh-pages": "^6.3.0",
+    "typescript": "^5.3.2",
+    "vite": "^5.0.2"
+  }
+}
