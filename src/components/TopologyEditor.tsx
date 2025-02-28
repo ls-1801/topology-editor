@@ -12,7 +12,7 @@ const TopologyEditor: React.FC<TopologyEditorProps> = ({ topology, setTopology }
   const [yamlText, setYamlText] = useState<string>(dump(topology));
   const [error, setError] = useState<string>('');
   const [isValid, setIsValid] = useState<boolean>(true);
-  const [typingTimer, setTypingTimer] = useState<NodeJS.Timeout | null>(null);
+  const [typingTimer, setTypingTimer] = useState<number | null>(null);
 
   // Function to validate and parse YAML
   const validateAndParseYaml = useCallback((text: string) => {
@@ -86,11 +86,11 @@ const TopologyEditor: React.FC<TopologyEditorProps> = ({ topology, setTopology }
     
     // Clear previous timer
     if (typingTimer) {
-      clearTimeout(typingTimer);
+      window.clearTimeout(typingTimer);
     }
     
     // Set a new timer to validate after typing stops
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       validateAndParseYaml(newText);
     }, 1000); // 1 second delay after typing stops
     

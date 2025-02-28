@@ -239,13 +239,15 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({ topology, onNod
       .force('charge', d3.forceManyBody()
         .strength(d => {
           // Control repulsion based on node type
-          if (d.nodeType === 'main') return -500;
+          const node = d as SimulationNode;
+          if (node.nodeType === 'main') return -500;
           return -100; // Less repulsion for sources/sinks but still some
         }))
       .force('collide', d3.forceCollide()
         .radius(d => {
           // Collision radius based on node type
-          if (d.nodeType === 'main') return 70;
+          const node = d as SimulationNode;
+          if (node.nodeType === 'main') return 70;
           return 20;
         }))
       .force('center', d3.forceCenter(width / 2, height / 2))

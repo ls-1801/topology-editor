@@ -140,7 +140,7 @@ const App: React.FC = () => {
       console.log('Updating physical source:', parentId, index, value);
       
       const updatedNodes = topology.nodes.map(node => {
-        if (node.connection === parentId && node.physical && index !== undefined) {
+        if (node.connection === parentId && node.physical && typeof index === 'number') {
           const updatedPhysical = [...node.physical];
           if (property === `physical[${index}]`) {
             updatedPhysical[index] = value;
@@ -188,7 +188,7 @@ const App: React.FC = () => {
       console.log("Parent node sinks:", parentNode?.sinks);
       
       const updatedNodes = topology.nodes.map(node => {
-        if (node.connection === parentId && node.sinks) {
+        if (node.connection === parentId && node.sinks && typeof index === 'number') {
           console.log(`Found parent node, updating sink at index ${index}`);
           const updatedSinks = [...node.sinks];
           if (property === `sinks[${index}]`) {
@@ -302,7 +302,7 @@ const App: React.FC = () => {
     // If we're removing the selected source, clear selection
     if (selectedNodeInfo?.type === 'physical') {
       const { parentId, index } = selectedNodeInfo;
-      if (parentId === nodeId && index === sourceIndex) {
+      if (parentId === nodeId && typeof index === 'number' && index === sourceIndex) {
         setSelectedNodeInfo(null);
       }
     }
@@ -326,7 +326,7 @@ const App: React.FC = () => {
     // If we're removing the selected sink, clear selection
     if (selectedNodeInfo?.type === 'sink') {
       const { parentId, index } = selectedNodeInfo;
-      if (parentId === nodeId && index === sinkIndex) {
+      if (parentId === nodeId && typeof index === 'number' && index === sinkIndex) {
         setSelectedNodeInfo(null);
       }
     }
@@ -368,7 +368,7 @@ const App: React.FC = () => {
       targetMainNode.physical.push(sourceToMove);
       
       // Update selection to new node
-      setSelectedNodeId('');
+      setSelectedNodeInfo(null);
       
     } else if (nodeType === 'sink' && sourceMainNode.sinks && sourceIndex >= 0) {
       // Get the sink to move
@@ -387,7 +387,7 @@ const App: React.FC = () => {
       targetMainNode.sinks.push(sinkToMove);
       
       // Update selection to new node
-      setSelectedNodeId('');
+      setSelectedNodeInfo(null);
     }
     
     setTopology({
